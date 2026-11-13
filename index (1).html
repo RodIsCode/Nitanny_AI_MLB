@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Penn State Class Planner</title>
+<style>
+:root{--bg:#fff;--fg:#1b2430;--mut:#5d6b7a;--card:#f4f6f9;--line:#d9dfe6;--acc:#1e407c;--onacc:#fff;--ok:#1a7f4b;--warn:#b25b00;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#10151c;--fg:#e8edf3;--mut:#9aa7b5;--card:#19212b;--line:#2c3744;--acc:#7da7ee;--onacc:#10151c;--ok:#5fd18f;--warn:#f0a35a;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header,main,footer{max-width:1040px;margin:0 auto;padding:0 16px}
+header{padding-top:24px}h1{margin:0;font-size:1.5rem}h2{font-size:1.05rem;margin:0 0 8px}h3{font-size:.95rem;margin:18px 0 6px}
+.mut{color:var(--mut)}.sm{font-size:.85rem}
+#bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:16px 0}
+select,input,button{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+button{cursor:pointer}button.p{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
+input#year{width:90px}#meter{flex:1;min-width:180px}
+.track{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:4px}.fill{height:100%;background:var(--ok)}.fill.hi{background:var(--warn)}
+.grid{display:grid;gap:20px;grid-template-columns:1fr}@media(min-width:820px){.grid{grid-template-columns:1fr 1fr}}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin:6px 0;background:var(--card);text-align:left;width:100%}
+.row b{font-variant-numeric:tabular-nums}.tag{font-size:.75rem;color:var(--mut)}
+.warn{color:var(--warn);font-size:.85rem}.bad{color:var(--bad)}
+#res{max-height:420px;overflow:auto;margin-top:6px}
+.x{padding:2px 8px;color:var(--bad)}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;margin:3px;background:var(--card);font-size:.85rem}
+dialog{max-width:560px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--fg)}
+dialog::backdrop{background:#0008}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0}dt{color:var(--mut)}dd{margin:0}
+.btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+pre{white-space:pre-wrap;background:var(--card);padding:10px;border-radius:8px;max-height:50vh;overflow:auto;font-size:.8rem}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 14px;border-radius:8px;max-width:90%;display:none;font-size:.9rem}
+footer{padding:24px 16px;color:var(--mut);font-size:.8rem}
+label{display:block;margin:8px 0 2px;color:var(--mut);font-size:.85rem}dialog input{width:100%}
+</style>
+</head>
+<body>
+<header>
+  <h1>Penn State Class Planner</h1>
+  <p class="mut">Pick a semester, choose courses, and confirm each one. A semester can hold up to 19 credits. Your plan is saved in this browser.</p>
+</header>
+<main>
+  <div id="bar">
+    <label class="sm" style="margin:0">Semester
+      <select id="season"><option>Spring</option><option>Fall</option></select>
+      <input id="year" type="number" min="2024" max="2040" aria-label="Year">
+    </label>
+    <div id="meter"></div>
+  </div>
+  <div class="grid">
+    <section>
+      <h2>Find courses</h2>
+      <input id="q" type="search" placeholder="Search by code or name (e.g. EE 210, circuits)" style="width:100%">
+      <p><button data-act="voice">🎤 Speak a course</button> <span class="mut sm">Say a code like "E E 2 1 0", then answer yes or no.</span></p>
+      <p style="display:flex;gap:6px"><input id="ask" placeholder='Ask: "what do I need for EE 488?"' style="flex:1"><button data-act="ask">Ask</button></p>
+      <p id="ans" class="sm"></p>
+      <div id="res"></div>
+      <p><button data-act="custom">+ Add a course not in the list</button></p>
+    </section>
+    <section>
+      <h2 id="th"></h2>
+      <div id="cur"></div>
+      <h3>All planned semesters</h3>
+      <div id="all"></div>
+      <h3>Completed courses</h3>
+      <div id="done"></div>
+      <p style="display:flex;gap:6px"><input id="dn" list="codes" placeholder="e.g. MATH 140, MATH 141" style="flex:1"><button data-act="mark">Mark done</button></p>
+      <datalist id="codes"></datalist>
+      <p><button class="p" data-act="export">Export checklist</button></p>
+    </section>
+  </div>
+</main>
+<footer>Unofficial student tool, not affiliated with Penn State. Course data is based on the Penn State Undergraduate Bulletin (Electrical Engineering, University Park, 2025–26). Always confirm prerequisites, offerings, and section times in LionPATH and with your adviser.</footer>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+
+<script>
+const U="Prerequisites not confirmed for University Park - check LionPATH.";
+const MAX=19,K="psu-planner-v1";
+// [code, name, credits, prereqs, prereq-or-concurrent, note]; a nested array means "any of"
+const C=[
+["CHEM 110","Chemical Principles I",3],
+["EDSGN 100","Cornerstone Engineering Design",3],
+["ENGL 15","Rhetoric and Composition",3],
+["ENGL 202C","Effective Writing: Technical Writing",3,["ENGL 15"]],
+["CAS 100A","Effective Speech",3],
+["ECON 102","Introductory Microeconomic Analysis and Policy",3],
+["ECON 104","Introductory Macroeconomic Analysis and Policy",3],
+["EE 8","Introduction to Digital Music (first-year seminar)",1],
+["EE 9","First-Year Seminar in Electrical Engineering",1],
+["MATH 140","Calculus With Analytic Geometry I",4],
+["MATH 141","Calculus with Analytic Geometry II",4,["MATH 140"]],
+["MATH 220","Matrices",2,["MATH 140"],[],"Penn State lists 2-3 credits; counted as 2 here."],
+["MATH 230","Calculus and Vector Analysis",4,["MATH 141"]],
+["MATH 250","Ordinary Differential Equations",3,["MATH 141"]],
+["PHYS 211","General Physics: Mechanics",4,[],["MATH 140"],"Math corequisite not confirmed - check LionPATH."],
+["PHYS 212","General Physics: Electricity and Magnetism",4,["PHYS 211","MATH 140"],["MATH 141"]],
+["PHYS 214","General Physics: Wave Motion and Quantum Physics",2,["MATH 141","PHYS 212"]],
+["STAT 318","Elementary Probability",3,["MATH 141"]],
+["CMPSC 121","Introduction to Programming Techniques",3,[],["MATH 140"]],
+["CMPSC 131","Programming and Computation I: Fundamentals",3,[],["MATH 140"]],
+["CMPSC 122","Intermediate Programming",3,["CMPSC 121"]],
+["CMPSC 132","Programming and Computation II: Data Structures",3,[["CMPSC 121","CMPSC 131"]]],
+["CMPSC 201","Programming for Engineers with C++",3,[],[],U],
+["CMPSC 221","Object Oriented Programming with Web-Based Applications",3,["CMPSC 132"]],
+["CMPSC 360","Discrete Mathematics for Computer Science",3,[["CMPSC 122","CMPSC 132"]],[],U],
+["CMPSC 442","Artificial Intelligence",3,[],[],U],
+["CMPSC 448","Machine Learning and Algorithmic AI",3,[],[],U],
+["CMPSC 465","Data Structures and Algorithms",3,[],[],U],
+["CMPEN 270","Digital Design: Theory and Practice",4,["PHYS 212"],[],"Equivalent to CMPEN 271 + CMPEN 275 together."],
+["CMPEN 271","Introduction to Digital Systems",3,[],[],U],
+["CMPEN 275","Digital Design Laboratory",1,[],["CMPEN 271"],U],
+["CMPEN 454","Fundamentals of Computer Vision",3,["MATH 230",["CMPSC 121","CMPSC 131","CMPSC 201"]]],
+["EE 200","Design Tools",3,["EE 210",["CMPEN 270","CMPEN 275"],["CMPSC 121","CMPSC 131","CMPSC 201"]],["EE 310"]],
+["EE 210","Circuits and Devices",4,["PHYS 212"],["MATH 250"]],
+["EE 300W","Design Process",3,["EE 200"],["ENGL 202C"]],
+["EE 310","Electronic Circuit Design I",4,["EE 210"]],
+["EE 311","Electronic Circuit Design II",3,["EE 210"]],
+["EE 330","Engineering Electromagnetics",4,["EE 210","MATH 230"]],
+["EE 340","Introduction to Nanoelectronics",4,["PHYS 214","EE 210"]],
+["EE 341","Semiconductor Device Principles",3,["EE 210"]],
+["EE 350","Continuous-Time Linear Systems",4,["EE 210","MATH 220","MATH 250"]],
+["EE 351","Discrete-Time Linear Systems",3,["EE 350"]],
+["EE 360","Communications Systems I",3,[["EE 350","EE 352"]]],
+["EE 380","Introduction to Linear Control Systems",3,["MATH 220",["EE 350","EE 312"]]],
+["EE 387","Energy Conversion",3,[["EE 350","EE 312"]]],
+["EE 403W","Capstone Design",3,["EE 300W","ENGL 202C"]],
+["EE 413","Power Electronics",3,["EE 310",["EE 350","EE 352"]]],
+["EE 416","Digital Integrated Circuits",3,["EE 310"]],
+["EE 453","Fundamentals of Digital Signal Processing",3,[["EE 351","EE 352","EE 353"]]],
+["EE 456","Introduction to Neural Networks",3,[["CMPSC 201","CMPSC 202"],"MATH 220"],[],"Bulletin lists CMPSC 201/202; ask your adviser if you took CMPSC 131/132."],
+["EE 487","Electric Machinery and Drives",3,["EE 387"]],
+["EE 488","Power Systems Analysis I",3,[["EE 387","EE 485"]]],
+["EE 489","Power Systems Analysis II",3,["EE 488"]]
+];
+const CAT={};C.forEach(([code,name,cr,pre,co,note])=>CAT[code]={code,name,cr,pre:pre||[],co:co||[],note:note||""});
+
+let S={done:[],plan:{},custom:{},meets:{},term:{s:"Spring",y:2027}};
+try{Object.assign(S,JSON.parse(localStorage.getItem(K)||"{}"))}catch(e){}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>s.trim().replace(/\s+/g," ").toUpperCase();
+const course=c=>CAT[c]||S.custom[c];
+const term=()=>S.term.s+" "+S.term.y;
+const tk=t=>{const[s,y]=t.split(" ");return +y*2+(s==="Fall"?1:0)};
+const termOf=c=>Object.keys(S.plan).find(t=>S.plan[t].includes(c));
+const fmt=i=>Array.isArray(i)?i.join(" or "):i;
+const sat=(i,t,strict)=>[].concat(i).some(o=>{
+  if(S.done.includes(o))return true;
+  const x=termOf(o);return !!x&&(tk(x)<tk(t)||(!strict&&tk(x)===tk(t)));
+});
+const unmet=(c,t)=>{const k=course(c);return[
+  ...k.pre.filter(i=>!sat(i,t,true)).map(fmt),
+  ...k.co.filter(i=>!sat(i,t,false)).map(i=>fmt(i)+" (or at the same time)")]};
+const cred=t=>(S.plan[t]||[]).reduce((a,c)=>a+(course(c)?course(c).cr:0),0);
+const num=n=>Number.isInteger(n)?n:n.toFixed(1);
+// meeting times like "MWF 9:05-9:55" (R = Thursday); 1:00-7:59 are read as PM
+const parseM=r=>{const m=/^\s*([MTWRF]+)\s+(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})\s*$/i.exec(r||"");if(!m)return null;
+  const f=(h,x)=>(+h<8?+h+12:+h)*60+ +x;return{d:new Set(m[1].toUpperCase()),s:f(m[2],m[3]),e:f(m[4],m[5])}};
+const clashWith=(c,t)=>{const a=parseM(S.meets[c]);if(!a)return "";
+  return (S.plan[t]||[]).find(o=>{const b=parseM(S.meets[o]);return b&&[...a.d].some(x=>b.d.has(x))&&a.s<b.e&&b.s<a.e})||""};
+const derr=m=>{const e=$("err");if(e)e.textContent=m;else toast(m)};
+
+let toastT;
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>t.style.display="none",5000)}
+
+function render(){
+  const t=term(),n=cred(t);
+  $("season").value=S.term.s;$("year").value=S.term.y;
+  $("meter").innerHTML=`<b>${esc(t)}</b>: ${num(n)} / ${MAX} credits<div class="track"><div class="fill ${n>=MAX-2?"hi":""}" style="width:${Math.min(100,n/MAX*100)}%"></div></div>`;
+  $("th").textContent=t+" schedule";
+  $("cur").innerHTML=(S.plan[t]||[]).map(c=>rowFor(c,t)).join("")||'<p class="mut">Nothing scheduled yet. Pick a course on the left.</p>';
+  const terms=Object.keys(S.plan).sort((a,b)=>tk(a)-tk(b));
+  $("all").innerHTML=terms.map(x=>`<p style="margin:10px 0 2px"><b>${esc(x)}</b> <span class="mut">${num(cred(x))} credits</span></p>`+S.plan[x].map(c=>rowFor(c,x)).join("")).join("")||'<p class="mut">No semesters planned yet.</p>';
+  $("done").innerHTML=S.done.map(c=>`<span class="chip">${esc(c)}<button class="x" data-rm="${esc(c)}" aria-label="Remove ${esc(c)} from completed">✕</button></span>`).join("")||'<p class="mut sm">None marked yet.</p>';
+  $("codes").innerHTML=Object.keys(CAT).map(c=>`<option value="${c}">`).join("");
+  results();
+}
+function rowFor(c,t){
+  const k=course(c),u=unmet(c,t);
+  return `<div class="row"><div><b>${esc(c)}</b> ${esc(k.name)} <span class="tag">${num(k.cr)} cr${S.meets[c]?" · "+esc(S.meets[c]):""}</span>${u.length?`<div class="warn">Needs: ${esc(u.join("; "))}</div>`:""}</div><button class="x" data-rm="${esc(c)}" aria-label="Remove ${esc(c)}">✕</button></div>`;
+}
+function results(){
+  const q=$("q").value.toLowerCase().trim();
+  const all=Object.values(CAT).concat(Object.values(S.custom));
+  const hit=all.filter(k=>!q||k.code.toLowerCase().includes(q)||k.name.toLowerCase().includes(q));
+  $("res").innerHTML=hit.map(k=>{
+    const tg=S.done.includes(k.code)?"completed":termOf(k.code)?"scheduled "+termOf(k.code):"";
+    return `<button class="row" data-open="${esc(k.code)}"><span><b>${esc(k.code)}</b> ${esc(k.name)}</span><span class="tag">${num(k.cr)} cr${tg?" · "+esc(tg):""}</span></button>`}).join("")||'<p class="mut">No matches. Try "Add a course not in the list".</p>';
+}
+
+function blocker(c,t){
+  const k=course(c);
+  if(S.done.includes(c))return "You've marked this course as completed.";
+  if(termOf(c))return "Already on your schedule ("+termOf(c)+").";
+  if(cred(t)+k.cr>MAX)return `Adding it would put ${t} at ${num(cred(t)+k.cr)} credits; the cap is ${MAX}.`;
+  return "";
+}
+function openCourse(c){
+  const k=course(c),t=term(),b=blocker(c,t),u=b?[]:unmet(c,t);
+  $("dlg").innerHTML=`<h2>${esc(c)} – ${esc(k.name)}</h2>
+  <dl><dt>Credits</dt><dd>${num(k.cr)}</dd>
+  <dt>Prereqs</dt><dd>${esc(k.pre.map(fmt).join("; ")||"none")}</dd>
+  ${k.co.length?`<dt>Or concurrent</dt><dd>${esc(k.co.map(fmt).join("; "))}</dd>`:""}
+  <dt>Offered</dt><dd>not specified (check LionPATH)</dd>
+  ${k.note?`<dt>Note</dt><dd>${esc(k.note)}</dd>`:""}</dl>
+  ${b?`<p class="bad"><b>Can't add:</b> ${esc(b)}</p>`:""}
+  ${u.length?`<p class="warn"><b>Heads up:</b> prerequisites not yet satisfied: ${esc(u.join("; "))}.</p>`:""}
+  ${b?"":`<label for="mt">Meeting time (optional, e.g. MWF 9:05-9:55; R = Thursday)</label><input id="mt" value="${esc(S.meets[c]||"")}"><p>${esc(t)} credits would go from ${num(cred(t))} to ${num(cred(t)+k.cr)} / ${MAX}.</p><p><b>Are you certain you want to add ${esc(c)} to ${esc(t)}?</b></p>`}
+  <p class="bad" id="err" role="alert"></p>
+  <div class="btns"><button data-act="close">${b?"Close":"No, cancel"}</button>${b?"":`<button class="p" data-add="${esc(c)}">Yes, add it</button>`}</div>`;
+  $("dlg").showModal();
+}
+function add(c){
+  const t=term(),mt=$("mt")?$("mt").value.trim().toUpperCase():"",prev=S.meets[c];
+  if(mt&&!parseM(mt)){derr("Meeting time should look like MWF 9:05-9:55.");return}
+  if(mt)S.meets[c]=mt;else delete S.meets[c];
+  const b=blocker(c,t)||(clashWith(c,t)?"Meeting time conflicts with "+clashWith(c,t)+".":"");
+  if(b){if(prev===undefined)delete S.meets[c];else S.meets[c]=prev;derr(b);return}
+  (S.plan[t]=S.plan[t]||[]).push(c);save();$("dlg").close();render();
+  toast(`Added ${c}. ${t}: ${num(cred(t))}/${MAX} credits.`);
+}
+function remove(c){
+  const t=termOf(c);
+  if(t){S.plan[t]=S.plan[t].filter(x=>x!==c);if(!S.plan[t].length)delete S.plan[t]}
+  else if(S.done.includes(c))S.done=S.done.filter(x=>x!==c);
+  else return;
+  save();render();
+  const broken=[];
+  Object.keys(S.plan).forEach(x=>S.plan[x].forEach(y=>{if(unmet(y,x).some(m=>m.includes(c)))broken.push(y+" ("+x+")")}));
+  toast(`Removed ${c}.`+(broken.length?" Now missing a requirement: "+broken.join(", ")+".":""));
+}
+function mark(){
+  norm($("dn").value).split(",").map(norm).filter(Boolean).forEach(c=>{if(!S.done.includes(c))S.done.push(c)});
+  $("dn").value="";save();render();
+}
+function customForm(){
+  $("dlg").innerHTML=`<h2>Add a course not in the list</h2>
+  <label for="cc">Course code (e.g. HIST 100)</label><input id="cc">
+  <label for="cn">Name</label><input id="cn">
+  <label for="cr">Credits</label><input id="cr" type="number" min="0.5" step="0.5" value="3">
+  <label for="cp">Prerequisites (optional, comma-separated)</label><input id="cp">
+  <p class="bad" id="err" role="alert"></p>
+  <div class="btns"><button data-act="close">Cancel</button><button class="p" data-act="savecustom">Create</button></div>`;
+  $("dlg").showModal();
+}
+function saveCustom(){
+  const code=norm($("cc").value),cr=parseFloat($("cr").value);
+  if(!code||!(cr>0)){derr("Enter a course code and a positive number of credits.");return}
+  if(course(code)){derr(code+" already exists.");return}
+  S.custom[code]={code,name:$("cn").value.trim(),cr,pre:$("cp").value.split(",").map(norm).filter(Boolean),co:[],note:""};
+  save();$("dlg").close();render();toast("Created "+code+". Find it in the list to add it.");
+}
+function checklist(){
+  const L=["PENN STATE SCHEDULE CHECKLIST","=============================",""];
+  Object.keys(S.plan).sort((a,b)=>tk(a)-tk(b)).forEach(t=>{
+    L.push(`${t} - ${num(cred(t))} credits`,"-".repeat(32));
+    S.plan[t].forEach(c=>{const k=course(c),u=unmet(c,t);
+      L.push(`  [ ] ${c.padEnd(10)} ${k.name} (${num(k.cr)} cr)${S.meets[c]?"   ["+S.meets[c]+"]":""}`);
+      if(u.length)L.push(`        ! check: needs ${u.join("; ")}`)});
+    L.push("");
+  });
+  if(L.length<4)return "";
+  return L.concat(["ENROLLMENT-DAY CHECKLIST","========================",
+  "  [ ] Find your Enrollment Appointment Date in the LionPATH Student Center",
+  "  [ ] Meet with your academic adviser to review these choices",
+  "  [ ] In LionPATH Schedule Builder, find real sections of each course above",
+  "      (pick times that fit together) and save the schedule",
+  "  [ ] Send the schedule to your Enrollment Shopping Cart",
+  "  [ ] Click Validate in the cart and fix any errors it reports",
+  "  [ ] On your appointment date: check every class in the cart and click Enroll",
+  "  [ ] Confirm each class appears on your schedule afterward",
+  "  [ ] Full section? Join the Wait List","",
+  "Note: the shopping cart does NOT hold a seat - only completed enrollment does.",""]).join("\n");
+}
+function exportList(){
+  const txt=checklist();
+  if(!txt){toast("Nothing to export yet - add some courses first.");return}
+  $("dlg").innerHTML=`<h2>Your checklist</h2><pre id="ctext">${esc(txt)}</pre>
+  <div class="btns"><button data-act="close">Close</button><button data-act="copy">Copy</button><button class="p" data-act="download">Download .txt</button></div>
+  <h3>Send it somewhere</h3>
+  <div class="btns" style="justify-content:flex-start;margin-top:0"><button data-act="csv">Google Sheets (.csv)</button><button data-act="mail">Email it to me</button></div>
+  <label>Calendar for ${esc(term())}: first and last day of classes (only courses with a meeting time are included)</label>
+  <div style="display:flex;gap:8px"><input id="ds" type="date"><input id="de" type="date"><button data-act="ics">Calendar (.ics)</button></div>
+  <p class="bad" id="err" role="alert"></p>`;
+  $("dlg").showModal();
+}
+
+
+// ---- Voice: talk and listen (browser speech APIs, no key needed) ----
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function say(t,cb){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);if(cb)u.onend=cb;speechSynthesis.speak(u)}catch(e){if(cb)cb()}}
+function listen(cb){
+  if(!SR){toast("Voice input isn't supported in this browser. Try Chrome or Edge.");return}
+  const r=new SR();r.lang="en-US";r.maxAlternatives=3;
+  r.onresult=e=>cb([...e.results[0]].map(a=>a.transcript));
+  r.onerror=()=>toast("Didn't catch that - try again.");
+  r.start();
+}
+const spoken=t=>{const m=/^([A-Z]+)(\d+[A-Z]?)$/.exec(t.toUpperCase().replace(/[^A-Z0-9]/g,""));return m?m[1]+" "+m[2]:""};
+function voice(){
+  toast("Listening... say a course code.");
+  listen(alts=>{
+    const c=alts.map(spoken).find(x=>x&&course(x));
+    if(!c){say("I couldn't find that course.");toast("Heard \""+alts[0]+"\" - no matching course.");return}
+    openCourse(c);const k=course(c),b=blocker(c,term());
+    if(b){say(b);return}
+    say(`${c}, ${k.name}, ${num(k.cr)} credits. Add it to ${term()}? Say yes or no.`,()=>listen(a=>{
+      if(/\b(yes|yeah|sure|yep)\b/i.test(a.join(" ")))add(c);else{$("dlg").close();say("Okay, skipped.")}}));
+  });
+}
+
+// ---- Knowledge: answers from the catalog and your own plan ----
+function need(c,seen=new Set(),out=[]){
+  const k=course(c);if(!k||seen.has(c))return out;seen.add(c);
+  [...k.pre,...k.co].forEach(i=>{const o=[].concat(i);if(o.some(x=>S.done.includes(x)))return;
+    const p=o.find(x=>course(x))||o[0];need(p,seen,out);if(!out.includes(p))out.push(p)});
+  return out;
+}
+function askPlan(){
+  const q=$("ask").value,el=$("ans");
+  const codes=[...q.toUpperCase().matchAll(/\b([A-Z]{2,5})\s?(\d{1,3}[A-Z]?)\b/g)].map(m=>m[1]+" "+m[2]).filter(course);
+  if(!codes.length){el.textContent='Include a course code, e.g. "what do I need for EE 488?" or "what does MATH 141 unlock?"';return}
+  const c=codes[0],k=course(c);
+  if(/unlock|lead|open|after/i.test(q)){
+    const d=Object.values(CAT).concat(Object.values(S.custom)).filter(x=>x.pre.concat(x.co).some(i=>[].concat(i).includes(c))).map(x=>x.code);
+    el.textContent=d.length?`${c} is a prerequisite for: ${d.join(", ")}.`:`No course in the list requires ${c}.`;
+  }else if(S.done.includes(c))el.textContent=`You've already completed ${c}.`;
+  else{const n=need(c);
+    el.textContent=n.length?`Before ${c} you still need, in order: ${n.map(x=>x+(termOf(x)?" (scheduled "+termOf(x)+")":"")).join(" → ")}.`
+      :`${c} (${k.name}, ${num(k.cr)} credits) has no unmet prerequisites.`;}
+}
+
+// ---- Actions: calendar, spreadsheet, email ----
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate());
+function dl(name,text,type){const u=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+function ics(){
+  const s=$("ds").value,e=$("de").value;
+  if(!s||!e||e<s){derr("Enter the first and last day of classes.");return}
+  const D={M:["MO",1],T:["TU",2],W:["WE",3],R:["TH",4],F:["FR",5]},hm=m=>pad(Math.floor(m/60))+pad(m%60)+"00";
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//PSU Class Planner//EN"],skip=[];let n=0;
+  (S.plan[term()]||[]).forEach(c=>{
+    const m=parseM(S.meets[c]);if(!m){skip.push(c);return}
+    const days=[...m.d],d0=new Date(s+"T00:00");
+    while(!days.some(x=>D[x][1]===d0.getDay()))d0.setDate(d0.getDate()+1);
+    L.push("BEGIN:VEVENT",`UID:${c.replace(/ /g,"")}-${ymd(d0)}@psu-planner`,`DTSTAMP:${ymd(new Date())}T000000Z`,
+      `DTSTART:${ymd(d0)}T${hm(m.s)}`,`DTEND:${ymd(d0)}T${hm(m.e)}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${days.map(x=>D[x][0]).join(",")};UNTIL=${e.replace(/-/g,"")}T235959`,
+      `SUMMARY:${c} ${course(c).name}`,"END:VEVENT");n++;
+  });
+  if(!n){derr("None of this semester's courses have a meeting time yet.");return}
+  dl("classes.ics",L.concat("END:VCALENDAR").join("\r\n"),"text/calendar");
+  derr(`Saved ${n} class${n>1?"es":""}.`+(skip.length?" No time set for: "+skip.join(", ")+".":""));
+}
+function csv(){
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"',R=[["Semester","Code","Name","Credits","Meeting time","Needs"]];
+  Object.keys(S.plan).sort((a,b)=>tk(a)-tk(b)).forEach(t=>S.plan[t].forEach(c=>{const k=course(c);R.push([t,c,k.name,k.cr,S.meets[c]||"",unmet(c,t).join("; ")])}));
+  dl("schedule.csv",R.map(r=>r.map(q).join(",")).join("\n"),"text/csv");
+}
+const mail=()=>{location.href="mailto:?subject="+encodeURIComponent("My Penn State schedule")+"&body="+encodeURIComponent(checklist())};
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-open],[data-add],[data-rm],[data-act]");if(!el)return;
+  if(el.dataset.open)openCourse(el.dataset.open);
+  else if(el.dataset.add)add(el.dataset.add);
+  else if(el.dataset.rm)remove(el.dataset.rm);
+  else{const a=el.dataset.act;
+    if(a==="close")$("dlg").close();
+    else if(a==="mark")mark();
+    else if(a==="custom")customForm();
+    else if(a==="savecustom")saveCustom();
+    else if(a==="export")exportList();
+    else if(a==="voice")voice();
+    else if(a==="ask")askPlan();
+    else if(a==="ics")ics();
+    else if(a==="csv")csv();
+    else if(a==="mail")mail();
+    else if(a==="copy"){navigator.clipboard.writeText($("ctext").textContent).then(()=>toast("Copied."),()=>toast("Couldn't copy - select the text instead."))}
+    else if(a==="download"){const u=URL.createObjectURL(new Blob([checklist()],{type:"text/plain"}));
+      const l=document.createElement("a");l.href=u;l.download="schedule_checklist.txt";l.click();URL.revokeObjectURL(u)}
+  }
+});
+$("q").addEventListener("input",results);
+$("ask").addEventListener("keydown",e=>{if(e.key==="Enter")askPlan()});
+$("dn").addEventListener("keydown",e=>{if(e.key==="Enter")mark()});
+$("season").addEventListener("change",e=>{S.term.s=e.target.value;save();render()});
+$("year").addEventListener("change",e=>{const y=parseInt(e.target.value);if(y>2000&&y<2100){S.term.y=y;save();render()}});
+render();
+</script>
+</body>
+</html>
