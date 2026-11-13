@@ -1,0 +1,14 @@
+{
+  "name": "Penn State Class Planner",
+  "short_name": "Class Planner",
+  "description": "Plan your semesters, check prerequisites, and stay under the credit cap.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e407c",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}
